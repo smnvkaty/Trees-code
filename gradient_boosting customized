@@ -1,0 +1,55 @@
+class GradientBoosting (BaseEstimator):
+    def __init__(self, n_estimators, max_depth, learning_rate=0.1):
+        """
+        PARAMETERS:
+        n_estimators - number of trees in the ensemble
+        max_depth - maximum depth of a tree
+        learning_rate - coefficient by which new algorithm result is multiplied
+        """
+        self.n_estimators = n_estimators
+        self.max_depth = max_depth
+        self.learning_rate = learning_rate
+
+        
+    def fit(self, x, y):
+        """
+        INPUT:
+        x - np.array of shape (k, d)
+        y - np.array of shape (k,)
+        """
+        self.storage = []
+        self.tree = DecisionTreeRegressor(max_depth= self.max_depth)
+        self.y_new = 0
+        self.s = y
+        for i in range(self.n_estimators):
+          self.y_new += self._fit_predict_tree(x, y)
+          self.storage.append(self.tree)
+
+    def _fit_predict_tree(self, x, y):
+        # Обучаем дерево и возвращаем его предикшн
+        self.gammas = []
+        self.tree = DecisionTreeRegressor(max_depth= self.max_depth)
+        self.s = y - self.y_new
+        self.tree.fit(x, self.s)
+
+        def shifted_error(gamma, a, b, c):
+          error= a - (b + gamma * c)
+          mse=np.mean(error**2)
+          return mse
+
+        self.gamma = minimize(shifted_error, 10, args=(y,self.y_new,self.tree.predict(x))).x
+        self.gammas.append(self.gamma)
+
+        return self.gamma * self.learning_rate * self.tree.predict(x)
+        
+    def predict(self, x):
+        """
+        INPUT:
+        x - np.array of shape (m, d)
+        OUTPUT:
+        y_pred - np.array of shape (m,)
+        """
+        self.y_pred = 0
+        for i, gamma_i in zip(self.storage, self.gammas):
+          self.y_pred += gamma_i * self.learning_rate * i.predict(x)
+        return self.y_pred
